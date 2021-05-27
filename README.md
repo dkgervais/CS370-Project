@@ -9,13 +9,6 @@
 
 <h4 align="center">This project utilizes a Raspberry Pi 3 B+ with a breakout board sensor in order to accurately determine air quality and display that information across a local network.</h4>
 
-<p align="center">
-  <a href="#key-features">Key Features</a> •
-  <a href="#how-to-use">How To Use</a> •
-  <a href="#download">Download</a> •
-  <a href="#credits">Credits</a> •
-</p>
-
 ## Key Features
 
 * Measures gas, temperature, humidity, and air pressure using the [BME680](https://smile.amazon.com/gp/product/B07GQQ9ZHN/ref=ppx_od_dt_b_asin_title_s00?ie=UTF8&psc=1) sensor 
