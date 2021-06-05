@@ -40,3 +40,5 @@ This software uses the following packages:
 
 - [Pimoroni BME680 Python library](https://github.com/pimoroni/bme680-python)
 - [BME68x Sensor Driver](https://github.com/BoschSensortec/BME68x-Sensor-API)
+
+## Delete mE
