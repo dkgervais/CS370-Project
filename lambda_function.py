@@ -6,105 +6,112 @@
 # Capitalized terms not defined in this file have the meanings given to them in the Agreement.
 #
 import logging.handlers
+import requests
 import uuid
 
-from ask_sdk_core.skill_builder import CustomSkillBuilder
-from ask_sdk_core.api_client import DefaultApiClient
+from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.utils import is_request_type, is_intent_name
 from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk_core.serialize import DefaultSerializer
+
+from ask_sdk_model import IntentRequest
+from ask_sdk_model.ui import PlayBehavior
 
 from ask_sdk_model.interfaces.custom_interface_controller import (
     StartEventHandlerDirective, EventFilter, Expiration, FilterMatchAction,
     StopEventHandlerDirective,
     SendDirectiveDirective,
     Header,
-    Endpoint
+    Endpoint,
+    EventsReceivedRequest,
+    ExpiredRequest
 )
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 serializer = DefaultSerializer()
-skill_builder = CustomSkillBuilder(api_client=DefaultApiClient())
+skill_builder = SkillBuilder()
 
-
-@skill_builder.request_handler(can_handle_func=is_request_type("LaunchRequest"))
-def launch_request_handler(handler_input: HandlerInput):
-    logger.info("== Launch Intent ==")
-
+# This defines the intent handler for the pi_to_alexa intent
+@skill_builder.request_handler(can_handle_func=is_intent_name("pi_to_alexa"))
+def pi_to_alexa_intent_handler(handler_input: HandlerInput):
+    logger.info("pi_to_alexa intent recieved")
     response_builder = handler_input.response_builder
 
     system = handler_input.request_envelope.context.system
+    api_access_token = system.api_access_token
+    api_endpoint = system.api_endpoint
 
     # Get connected gadget endpoint ID.
-    endpoints = get_connected_endpoints(handler_input)
+    endpoints = get_connected_endpoints(api_endpoint, api_access_token)
     logger.debug("Checking endpoint..")
     if not endpoints:
         logger.debug("No connected gadget endpoints available.")
         return (response_builder
-                .speak("No gadgets found. Please try again after connecting your gadget.")
+                .speak("Sorry, nothing is connected.")
                 .set_should_end_session(True)
                 .response)
 
-    endpoint_id = endpoints[0].endpoint_id
-
-    # Store endpoint ID for using it to send custom directives later.
-    logger.debug("Received endpoints. Storing Endpoint Id: %s", endpoint_id)
+    endpoint_id = endpoints[0]['endpointId']
+    
     session_attr = handler_input.attributes_manager.session_attributes
-    session_attr['endpointId'] = endpoint_id
-
-    # Send the BlindLEDDirective to make the LED green for 20 seconds.
-    return (response_builder
-            .speak("Hi! I will cycle through a spectrum of colors. " +
-                   "When you press the button, I'll report back which color you pressed. Are you ready?")
-            .add_directive(build_blink_led_directive(endpoint_id, ['GREEN'], 1000, 20, False))
-            .set_should_end_session(False)
-            .response)
-
-
-@skill_builder.request_handler(can_handle_func=is_intent_name("AMAZON.YesIntent"))
-def yes_intent_handler(handler_input: HandlerInput):
-    logger.info("YesIntent received. Starting game.")
-
-    # Retrieve the stored gadget endpoint ID from the SessionAttributes.
-    session_attr = handler_input.attributes_manager.session_attributes
-    endpoint_id = session_attr['endpointId']
 
     # Create a token to be assigned to the EventHandler and store it
     # in session attributes for stopping the EventHandler later.
     token = str(uuid.uuid4())
     session_attr['token'] = token
 
-    response_builder = handler_input.response_builder
+    # Send the data do the pi
+    data = handler_input.request_envelope.request.intent.slots
 
-    # Send the BlindLED Directive to trigger the cycling animation of the LED.
-    # and, start a EventHandler for 10 seconds to receive only one
+    # Note that the directive added below passes the data to the pi
+    # and waits 5000 ms for a response from it
     return (response_builder
-            .add_directive(build_blink_led_directive(endpoint_id,
-                                                     ['RED', 'YELLOW', 'GREEN', 'CYAN',
-                                                      'BLUE', 'PURPLE', 'WHITE'],
-                                                     1000, 2, True))
-            .add_directive(build_start_event_handler_directive(token, 10000,
-                                                               'Custom.ColorCyclerGadget', 'ReportColor',
+            .add_directive(build_pi_to_alexa_directive(endpoint_id,
+                                                     data))
+            .add_directive(build_start_event_handler_directive(token, 5000,
+                                                               'Custom.MyGadget', 'PiToAlexa',
                                                                FilterMatchAction.SEND_AND_TERMINATE,
-                                                               {'data': "You didn't press the button. Good bye!"}))
+                                                               {'data': "The timer expired before data was passed back in an event."}))
             .response)
 
 
-@skill_builder.request_handler(can_handle_func=is_intent_name("AMAZON.NoIntent"))
-def no_intent_handler(handler_input: HandlerInput):
-    logger.info("Received NoIntent..Exiting.")
-
-    # Retrieve the stored gadget endpointId from the SessionAttributes.
-    session_attr = handler_input.attributes_manager.session_attributes
-    endpoint_id = session_attr['endpointId']
-
+# This defines the intent handler for the alexa_to_pi intent
+@skill_builder.request_handler(can_handle_func=is_intent_name("alexa_to_pi"))
+def alexa_to_pi_intent_handler(handler_input: HandlerInput):
+    logger.info("alexa_to_pi intent recieved")
     response_builder = handler_input.response_builder
 
+    system = handler_input.request_envelope.context.system
+    api_access_token = system.api_access_token
+    api_endpoint = system.api_endpoint
+
+    # Get connected gadget endpoint ID.
+    endpoints = get_connected_endpoints(api_endpoint, api_access_token)
+    logger.debug("Checking endpoint..")
+    if not endpoints:
+        logger.debug("No connected gadget endpoints available.")
+        return (response_builder
+                .speak("Sorry, nothing is connected.")
+                .set_should_end_session(True)
+                .response)
+
+    endpoint_id = endpoints[0]['endpointId']
+    
+    session_attr = handler_input.attributes_manager.session_attributes
+
+
+    # Create a token to be assigned to the EventHandler and store it
+    # in session attributes for stopping the EventHandler later.
+    token = str(uuid.uuid4())
+    session_attr['token'] = token
+
+    # Send the data do the pi
+    data = handler_input.request_envelope.request.intent.slots
+
     return (response_builder
-            .speak("Alright. Good bye!")
-            .add_directive(build_stop_led_directive(endpoint_id))
-            .set_should_end_session(True)
+            .add_directive(build_alexa_to_pi_directive(endpoint_id,
+                                                     data))
             .response)
 
 
@@ -128,11 +135,10 @@ def custom_interface_event_handler(handler_input: HandlerInput):
     namespace = custom_event.header.namespace
     name = custom_event.header.name
 
-    if namespace == 'Custom.ColorCyclerGadget' and name == 'ReportColor':
-        # On receipt of 'Custom.ColorCyclerGadget.ReportColor' event, speak the reported color
-        # and end skill session.
+    # This is where we tell the function to simply speak out the payload sent from the Pi
+    if namespace == 'Custom.MyGadget' and name == 'PiToAlexa':
         return (response_builder
-                .speak(payload['color'] + ' is the selected color. Thank you for playing. Good bye!')
+                .speak(str(payload['data']))
                 .set_should_end_session(True)
                 .response)
 
@@ -148,8 +154,7 @@ def custom_interface_expiration_handler(handler_input):
     session_attr = handler_input.attributes_manager.session_attributes
     endpoint_id = session_attr['endpointId']
 
-    # When the EventHandler expires, send StopLED directive to stop LED animation
-    # and end skill session.
+    # When the EventHandler expires, speak and end the skill session.
     return (response_builder
             .add_directive(build_stop_led_directive(endpoint_id))
             .speak(request.expiration_payload['data'])
@@ -157,26 +162,8 @@ def custom_interface_expiration_handler(handler_input):
             .response)
 
 
-@skill_builder.request_handler(can_handle_func=lambda handler_input:
-                               is_intent_name("AMAZON.CancelIntent")(handler_input) or
-                               is_intent_name("AMAZON.StopIntent")(handler_input))
-def stop_and_cancel_intent_handler(handler_input):
-    logger.info("Received a Stop or a Cancel Intent..")
-    session_attr = handler_input.attributes_manager.session_attributes
-    response_builder = handler_input.response_builder
-    endpoint_id = session_attr['endpointId']
 
-    # When the user stops the skill, stop the EventHandler,
-    # send StopLED directive to stop LED animation and end skill session.
-    if 'token' in session_attr.keys():
-        logger.debug("Active session detected, sending stop EventHandlerDirective.")
-        response_builder.add_directive(StopEventHandlerDirective(session_attr['token']))
 
-    return (response_builder
-            .speak("Alright, see you later.")
-            .add_directive(build_stop_led_directive(endpoint_id))
-            .set_should_end_session(True)
-            .response)
 
 
 @skill_builder.request_handler(can_handle_func=is_request_type("SessionEndedRequest"))
@@ -209,30 +196,21 @@ def log_response(handler_input, response):
                 str(serializer.serialize(handler_input.attributes_manager.session_attributes)))
 
 
-def get_connected_endpoints(handler_input: HandlerInput):
-    return handler_input.service_client_factory.get_endpoint_enumeration_service().get_endpoints().endpoints
 
 
-def build_blink_led_directive(endpoint_id, colors_list, intervalMs, iterations, startGame):
-    return SendDirectiveDirective(
-        header=Header(namespace='Custom.ColorCyclerGadget', name='BlinkLED'),
-        endpoint=Endpoint(endpoint_id=endpoint_id),
-        payload={
-            'colors_list': colors_list,
-            'intervalMs': intervalMs,
-            'iterations': iterations,
-            'startGame': startGame
-        }
-    )
 
+# Get the ids for the gadgets that are connected to the Alexa device
+def get_connected_endpoints(api_endpoint, api_access_token):
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer {}'.format(api_access_token)
+    }
 
-def build_stop_led_directive(endpoint_id):
-    return SendDirectiveDirective(
-        header=Header(namespace='Custom.ColorCyclerGadget', name='StopLED'),
-        endpoint=Endpoint(endpoint_id=endpoint_id),
-        payload={}
-    )
+    api_url = api_endpoint + "/v1/endpoints"
+    endpoints_response = requests.get(api_url, headers=headers)
 
+    if endpoints_response.status_code == requests.codes['ok']:
+        return endpoints_response.json()["endpoints"]
 
 def build_start_event_handler_directive(token, duration_ms, namespace,
                                         name, filter_match_action, expiration_payload):
@@ -252,8 +230,25 @@ def build_start_event_handler_directive(token, duration_ms, namespace,
             expiration_payload=expiration_payload))
 
 
-def build_stop_event_handler_directive(token):
-    return StopEventHandlerDirective(token=token)
+# Build the directive to send data to the pi
+def build_alexa_to_pi_directive(endpoint_id, data):
+    return SendDirectiveDirective(
+        header=Header(namespace='Custom.MyGadget', name='AlexaToPi'),
+        endpoint=Endpoint(endpoint_id=endpoint_id),
+        payload={
+            'data': data
+        }
+    )
 
+# Build the directive to send data to the pi with expectation that
+# pi will send data back
+def build_pi_to_alexa_directive(endpoint_id, data):
+    return SendDirectiveDirective(
+        header=Header(namespace='Custom.MyGadget', name='PiToAlexa'),
+        endpoint=Endpoint(endpoint_id=endpoint_id),
+        payload={
+            'data': data
+        }
+    )
 
 lambda_handler = skill_builder.lambda_handler()
