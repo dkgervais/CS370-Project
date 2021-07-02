@@ -93,11 +93,11 @@ def get_aq_text(air_quality_score):
     score = (100 - air_quality_score) * .05
     
     if(score >= 3.01):
-        return "Hazardous. Help me. I'm seeing smoke."
+        return "Hazardous."
     if(score >= 2.01 and score <= 3.01):
-        return "Very Unhealthy. Did somebody fart in here?"
+        return "Very Unhealthy."
     if(score >= 1.76 and score <= 2):
-        return "Unhealthy. Who's smokin a doobie?"
+        return "Unhealthy."
     if(score >= 1.51 and score <= 1.75):
         return "Unhealthy for Sensitive Groups"
     if(score >= .51 and score <= 1.50):
