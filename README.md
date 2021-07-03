@@ -15,29 +15,9 @@
 * Integration with Amazon Alexa API
 * Ability to easily monitor air quality 
 
-## How To Use
-
-To clone and run this application, you'll need [Git](https://git-scm.com) installed on your computer. From your command line:
-
-```bash
-# Clone this repository
-$ git clone https://github.com/dkgervais/CS370-Project
-
-# Go into the repository
-$ cd CS370-Project
-
-# TODO: Add remaining steps 
-```
-
-
-## Download
-
-You can [download](https://github.com/dkgervais/CS370-Project/releases) the latest installable version of this project for use on a Raspberry Pi 3 B+.
-
 ## Credits
 
 This software uses the following packages:
 
 - [Pimoroni BME680 Python library](https://github.com/pimoroni/bme680-python)
-- [BME68x Sensor Driver](https://github.com/BoschSensortec/BME68x-Sensor-API)
 - [Alexa Skills Kit SDK for Python](https://github.com/alexa/alexa-skills-kit-sdk-for-python)
