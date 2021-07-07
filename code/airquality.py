@@ -10,7 +10,6 @@ def get_air_quality():
         sensor = bme680.BME680(bme680.I2C_ADDR_SECONDARY)
 
     # Default oversampling settings
-
     sensor.set_humidity_oversample(bme680.OS_2X)
     sensor.set_pressure_oversample(bme680.OS_4X)
     sensor.set_temperature_oversample(bme680.OS_8X)
