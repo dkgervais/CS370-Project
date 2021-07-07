@@ -106,7 +106,7 @@ def calculate_air_quality():
 	except KeyboardInterrupt:
     	pass
 
-	average_air_quality = total_air_quality / 30
+	average_air_quality = total_air_quality / 50
 
 	# TODO:Figure out how to break up air quality percentage into categories
 	# Write conditional statements based on categories to simplify output
