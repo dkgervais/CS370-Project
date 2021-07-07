@@ -2,7 +2,7 @@
 
 import json
 from agt import AlexaGadget
-import aqnb
+import airquality
 import sys
 import logging
 
@@ -17,7 +17,7 @@ class MyGadget(AlexaGadget):
 
     # Function that receives a payload from Alexa 
     def on_custom_mygadget_pitoalexa(self, directive):
-        payload = {'data': "The Local Air Quality is " + aqnb.get_air_quality()}
+        payload = {'data': "The Local Air Quality is " + airquality.get_air_quality()}
         # Send the payload in the event back to Alexa
         self.send_custom_event('Custom.MyGadget', 'PiToAlexa', payload)
 
